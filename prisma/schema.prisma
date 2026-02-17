@@ -1,0 +1,392 @@
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+    output = "/home/ubuntu/roommate_expense_manager/nextjs_space/node_modules/.prisma/client"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model Group {
+  id            String   @id @default(cuid())
+  name          String
+  currency      String   @default("EUR")
+  adminPassword String?  // Hashed admin password for secure login
+  simplifyDebts Boolean  @default(false) // When true, minimize transactions like Splitwise
+  createdAt     DateTime @default(now())
+
+  members           GroupMember[]
+  inviteCodes       InviteCode[]
+  expenses          Expense[]
+  recurringExpenses RecurringExpense[]
+  settlements       Settlement[]
+  activityLogs      ActivityLog[]
+  budget            Budget?
+  chatMessages      ChatMessage[]
+  undoHistory       UndoHistory[]
+  shoppingItems     ShoppingItem[]
+  chores            Chore[]
+  houseVoicePosts   HouseVoicePost[]
+
+  @@map("groups")
+}
+
+model GroupMember {
+  id          String   @id @default(cuid())
+  groupId     String
+  displayName String
+  avatarUrl   String?  // Profile picture URL
+  isAdmin     Boolean  @default(false)
+  joinedAt    DateTime @default(now())
+  sessionToken String? @unique
+
+  group             Group              @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  expensesPaid      Expense[]          @relation("PaidBy")
+  expenseSplits     ExpenseSplit[]
+  settlementsFrom   Settlement[]       @relation("FromMember")
+  settlementsTo     Settlement[]       @relation("ToMember")
+  chatMessages      ChatMessage[]
+  undoHistory       UndoHistory[]
+  pushSubscriptions PushSubscription[]
+  shoppingItemsAdded     ShoppingItem[] @relation("AddedBy")
+  shoppingItemsPurchased ShoppingItem[] @relation("PurchasedBy")
+  choreAssignments  ChoreAssignment[]
+
+  @@map("group_members")
+}
+
+model InviteCode {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  groupId   String
+  slotName  String
+  used      Boolean  @default(false)
+  usedBy    String?
+  createdAt DateTime @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@map("invite_codes")
+}
+
+model Expense {
+  id             String   @id @default(cuid())
+  groupId        String
+  description    String
+  amountCents    Int
+  paidById       String
+  month          String   // Format: YYYY-MM
+  category       String   @default("other") // rent, utilities, groceries, internet, entertainment, transport, dining, other
+  notes          String?
+  billPhotoUrl   String?
+  billPhotoPath  String?
+  receiptOcrText String?  // Extracted text from receipt for searching
+  isRecurring    Boolean  @default(false)
+  recurringId    String?
+  createdAt      DateTime @default(now())
+
+  group     Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  paidBy    GroupMember    @relation("PaidBy", fields: [paidById], references: [id], onDelete: Cascade)
+  splits    ExpenseSplit[]
+  recurring RecurringExpense? @relation(fields: [recurringId], references: [id])
+
+  @@index([groupId, month])
+  @@index([groupId, category])
+  @@map("expenses")
+}
+
+model ExpenseSplit {
+  id        String @id @default(cuid())
+  expenseId String
+  memberId  String
+  shareCents Int
+
+  expense Expense     @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  member  GroupMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([expenseId, memberId])
+  @@map("expense_splits")
+}
+
+model RecurringExpense {
+  id          String   @id @default(cuid())
+  groupId     String
+  name        String
+  amountCents Int
+  splitConfig Json     // { type: 'equal' } or { type: 'custom', shares: { memberId: cents } }
+  active      Boolean  @default(true)
+  lastGeneratedMonth String?
+  createdAt   DateTime @default(now())
+
+  group    Group     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  expenses Expense[]
+
+  @@map("recurring_expenses")
+}
+
+model Settlement {
+  id            String   @id @default(cuid())
+  groupId       String
+  fromMemberId  String
+  toMemberId    String
+  amountCents   Int
+  month         String   // Format: YYYY-MM
+  paymentMethod String   @default("cash") // cash, bank_transfer, paypal, venmo, revolut, other
+  createdAt     DateTime @default(now())
+
+  group      Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  fromMember GroupMember @relation("FromMember", fields: [fromMemberId], references: [id], onDelete: Cascade)
+  toMember   GroupMember @relation("ToMember", fields: [toMemberId], references: [id], onDelete: Cascade)
+
+  @@index([groupId, month])
+  @@map("settlements")
+}
+
+model Budget {
+  id           String   @id @default(cuid())
+  groupId      String   @unique
+  monthlyLimit Int      // in cents
+  alertAt      Int      @default(80) // percentage to alert at
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@map("budgets")
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  groupId   String
+  type      String   // expense_added, settlement_recorded, recurring_generated, member_joined
+  metadata  Json
+  createdAt DateTime @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId, createdAt])
+  @@map("activity_logs")
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  groupId   String
+  memberId  String
+  content   String
+  mentions  String[] // Array of member IDs mentioned with @
+  createdAt DateTime @default(now())
+
+  group  Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  member GroupMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([groupId, createdAt])
+  @@map("chat_messages")
+}
+
+model UndoHistory {
+  id          String   @id @default(cuid())
+  groupId     String
+  memberId    String
+  actionType  String   // expense_added, expense_deleted, settlement_added, settlement_deleted
+  entityType  String   // expense, settlement
+  entityId    String?  // ID of the created/deleted entity
+  entityData  Json     // Full data snapshot for restoration
+  canUndo     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  expiresAt   DateTime // Undo available for limited time (e.g., 5 minutes)
+
+  group  Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  member GroupMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([groupId, memberId, createdAt])
+  @@map("undo_history")
+}
+
+model PushSubscription {
+  id          String   @id @default(cuid())
+  memberId    String
+  endpoint    String   @unique
+  p256dh      String   // Public key for encryption
+  auth        String   // Auth secret for encryption
+  createdAt   DateTime @default(now())
+
+  member GroupMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([memberId])
+  @@map("push_subscriptions")
+}
+
+model ShoppingItem {
+  id           String    @id @default(cuid())
+  groupId      String
+  name         String
+  quantity     String?   // e.g., "2 liters", "1 pack"
+  category     String    @default("general") // groceries, household, personal, other
+  addedById    String
+  purchased    Boolean   @default(false)
+  purchasedById String?
+  purchasedAt  DateTime?
+  createdAt    DateTime  @default(now())
+
+  group       Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  addedBy     GroupMember @relation("AddedBy", fields: [addedById], references: [id], onDelete: Cascade)
+  purchasedBy GroupMember? @relation("PurchasedBy", fields: [purchasedById], references: [id])
+
+  @@index([groupId, purchased])
+  @@map("shopping_items")
+}
+
+model Chore {
+  id        String   @id @default(cuid())
+  groupId   String
+  name      String
+  icon      String   @default("🧹") // Emoji icon
+  frequency String   @default("weekly") // weekly, biweekly
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  group         Group              @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  assignments   ChoreAssignment[]
+  rotationState ChoreRotationState?
+
+  @@index([groupId, active])
+  @@map("chores")
+}
+
+model ChoreAssignment {
+  id          String    @id @default(cuid())
+  choreId     String
+  assignedToId String
+  periodStart DateTime
+  periodEnd   DateTime
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  chore      Chore       @relation(fields: [choreId], references: [id], onDelete: Cascade)
+  assignedTo GroupMember @relation(fields: [assignedToId], references: [id], onDelete: Cascade)
+
+  @@index([choreId, periodStart])
+  @@index([assignedToId])
+  @@map("chore_assignments")
+}
+
+model ChoreRotationState {
+  id           String @id @default(cuid())
+  groupId      String
+  choreId      String @unique
+  currentIndex Int    @default(0) // Rotation pointer into sorted member list
+
+  chore Chore @relation(fields: [choreId], references: [id], onDelete: Cascade)
+
+  @@index([groupId])
+  @@map("chore_rotation_states")
+}
+
+// ==========================================
+// HOUSE VOICE - Anonymous Communication System
+// ==========================================
+
+// System-generated house updates (weekly/monthly summaries)
+model HouseVoicePost {
+  id          String   @id @default(cuid())
+  groupId     String
+  type        String   // weekly_summary, monthly_summary, system_notice, consensus_notice
+  content     String   // Generated text content
+  periodStart DateTime?
+  periodEnd   DateTime?
+  createdAt   DateTime @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId, createdAt])
+  @@map("house_voice_posts")
+}
+
+// Anonymous signals from residents - NO user ID exposed
+model HouseSignal {
+  id            String   @id @default(cuid())
+  groupId       String
+  category      String   // cleaning, noise, expenses, shared_space, fairness, other
+  message       String?  // Optional short message (max 200 chars)
+  submitterHash String   // Hashed member ID - NEVER expose or decode
+  expiresAt     DateTime // Auto-expire after 30 days
+  createdAt     DateTime @default(now())
+
+  @@index([groupId, createdAt])
+  @@index([groupId, category])
+  @@map("house_signals")
+}
+
+// Rate limiting for anonymous signals - tracks submissions per user
+model SignalRateLimit {
+  id           String   @id @default(cuid())
+  groupId      String
+  submitterHash String  // Same hash as HouseSignal
+  weekStart    DateTime // Start of the week for rate limiting
+  count        Int      @default(1)
+  
+  @@unique([groupId, submitterHash, weekStart])
+  @@map("signal_rate_limits")
+}
+
+// ==========================================
+// MONTH SOFT-LOCK - Financial Period Control
+// ==========================================
+// Allows marking months as "Closed" to prevent:
+// - New expenses in closed months
+// - Edits to existing expenses in closed months
+// - New settlements in closed months
+// - Undo operations in closed months
+// - Recurring expense generation into closed months
+// Balances remain queryable for historical records
+
+model ClosedMonth {
+  id        String   @id @default(cuid())
+  groupId   String
+  month     String   // Format: YYYY-MM
+  closedBy  String   // Member ID who closed the month
+  closedAt  DateTime @default(now())
+  notes     String?  // Optional reason for closing
+
+  @@unique([groupId, month])
+  @@index([groupId])
+  @@map("closed_months")
+}
+
+// ==========================================
+// SMART GROCERY USAGE PREDICTION
+// ==========================================
+// Tracks grocery items and predicts when they'll run out
+// based on historical usage patterns.
+
+model GroceryItem {
+  id                  String    @id @default(cuid())
+  groupId             String
+  name                String
+  quantity            Float     // Initial quantity purchased
+  unit                String    // e.g., "liters", "kg", "pieces", "packs"
+  purchaseDate        DateTime  @default(now())
+  status              String    @default("active") // "active" | "finished"
+  avgDailyUsage       Float?    // Calculated from history
+  predictedFinishDate DateTime? // When item is expected to run out
+  createdAt           DateTime  @default(now())
+
+  @@index([groupId, status])
+  @@index([groupId, name])
+  @@map("grocery_items")
+}
+
+model GroceryUsageHistory {
+  id            String   @id @default(cuid())
+  groupId       String
+  itemName      String   // Normalized item name for matching
+  quantity      Float    // How much was purchased
+  daysUsed      Int      // How many days it lasted
+  avgDailyUsage Float    // quantity / daysUsed
+  createdAt     DateTime @default(now())
+
+  @@index([groupId, itemName, createdAt])
+  @@map("grocery_usage_history")
+}
