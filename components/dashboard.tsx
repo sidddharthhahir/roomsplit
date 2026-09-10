@@ -7,7 +7,7 @@ import { Input } from './ui/input';
 import { Select } from './ui/select';
 import { useMembers } from '@/lib/hooks/use-members';
 import { useBalances } from '@/lib/hooks/use-balances';
-import { formatCents, parseCentsFromEuros } from '@/lib/format';
+import { formatCents, parseCentsFromEuros, formatMonth } from '@/lib/format';
 import { 
   Wallet, 
   Receipt, 
@@ -2074,11 +2074,6 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
     setSelectedMonth(date.toISOString().slice(0, 7));
   };
 
-  const formatMonth = (monthStr: string) => {
-    const [year, month] = monthStr.split('-');
-    return new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  };
-
   const tabs = [
     { id: 'expenses', label: 'Expenses', icon: <Receipt className="w-5 h-5" /> },
     { id: 'balances', label: 'Balances', icon: <Users className="w-5 h-5" /> },
@@ -2242,7 +2237,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
           <div className="max-w-lg mx-auto px-4 text-center">
             {totalOwed === 0 ? (
               <div>
-                <p className="text-white/80 text-sm">You're all settled up!</p>
+                <p className="text-white/80 text-sm">You&apos;re all settled up!</p>
                 <p className="text-2xl font-bold mt-1">€0.00</p>
               </div>
             ) : totalOwed > 0 ? (
@@ -2737,7 +2732,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-semibold text-[var(--foreground)] flex items-center gap-2">
                         <Calendar className="w-4 h-4 text-[var(--muted-foreground)]" />
-                        This Week's Schedule
+                        This Week&apos;s Schedule
                       </h3>
                       {choreAssignments.length > 0 && choreAssignments[0].assignment && (
                         <span className="text-xs text-[var(--muted-foreground)]">
@@ -3417,7 +3412,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                             </p>
                             {signal.message && (
                               <p className="text-sm text-[var(--muted-foreground)] mt-1 italic">
-                                "{signal.message}"
+                                &quot;{signal.message}&quot;
                               </p>
                             )}
                             <p className="text-xs text-[var(--muted-foreground)] mt-2">
@@ -4369,7 +4364,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                   <h4 className="text-sm font-semibold text-[var(--foreground)] mb-2">Settlements</h4>
                   {breakdown.totalIPaid > 0 && (
                     <p className="text-sm text-[var(--muted-foreground)]">
-                      You've paid {debtBreakdownMember.name}: <span className="text-[#5bc5a7] font-medium">{formatCents(breakdown.totalIPaid)}</span>
+                      You&apos;ve paid {debtBreakdownMember.name}: <span className="text-[#5bc5a7] font-medium">{formatCents(breakdown.totalIPaid)}</span>
                     </p>
                   )}
                   {breakdown.totalTheyPaid > 0 && (
@@ -4639,7 +4634,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
               className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--foreground)] text-sm resize-none focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
             <p className="text-xs text-[var(--muted-foreground)] flex justify-between">
-              <span>No names, no "you/he/she", keep it neutral</span>
+              <span>No names, no &quot;you/he/she&quot;, keep it neutral</span>
               <span>{signalMessage.length}/200</span>
             </p>
           </div>

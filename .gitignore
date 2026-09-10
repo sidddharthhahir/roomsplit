@@ -1,5 +1,8 @@
 node_modules
 .env
+.env*.local
 .next
 dist
 uploads
+*.tsbuildinfo
+.DS_Store

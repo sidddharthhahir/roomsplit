@@ -77,6 +77,14 @@ npx prisma db seed
 yarn dev
 ```
 
+### Testing
+
+Unit tests cover the core financial and prediction logic (balance calculation, debt simplification, currency formatting, grocery usage prediction):
+
+```bash
+yarn test
+```
+
 ## Usage
 
 Open `http://localhost:3000` and:
