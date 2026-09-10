@@ -1,7 +1,6 @@
 generator client {
     provider = "prisma-client-js"
     binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
-    output = "/home/ubuntu/roommate_expense_manager/nextjs_space/node_modules/.prisma/client"
 }
 
 datasource db {
@@ -284,11 +283,6 @@ model ChoreRotationState {
   @@map("chore_rotation_states")
 }
 
-// ==========================================
-// HOUSE VOICE - Anonymous Communication System
-// ==========================================
-
-// System-generated house updates (weekly/monthly summaries)
 model HouseVoicePost {
   id          String   @id @default(cuid())
   groupId     String
@@ -304,7 +298,6 @@ model HouseVoicePost {
   @@map("house_voice_posts")
 }
 
-// Anonymous signals from residents - NO user ID exposed
 model HouseSignal {
   id            String   @id @default(cuid())
   groupId       String
@@ -319,7 +312,6 @@ model HouseSignal {
   @@map("house_signals")
 }
 
-// Rate limiting for anonymous signals - tracks submissions per user
 model SignalRateLimit {
   id           String   @id @default(cuid())
   groupId      String
@@ -330,17 +322,6 @@ model SignalRateLimit {
   @@unique([groupId, submitterHash, weekStart])
   @@map("signal_rate_limits")
 }
-
-// ==========================================
-// MONTH SOFT-LOCK - Financial Period Control
-// ==========================================
-// Allows marking months as "Closed" to prevent:
-// - New expenses in closed months
-// - Edits to existing expenses in closed months
-// - New settlements in closed months
-// - Undo operations in closed months
-// - Recurring expense generation into closed months
-// Balances remain queryable for historical records
 
 model ClosedMonth {
   id        String   @id @default(cuid())
@@ -354,12 +335,6 @@ model ClosedMonth {
   @@index([groupId])
   @@map("closed_months")
 }
-
-// ==========================================
-// SMART GROCERY USAGE PREDICTION
-// ==========================================
-// Tracks grocery items and predicts when they'll run out
-// based on historical usage patterns.
 
 model GroceryItem {
   id                  String    @id @default(cuid())
